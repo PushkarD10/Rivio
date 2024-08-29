@@ -956,6 +956,7 @@ type HomeScreenStateProps =
   , isOtpRideFlow :: Boolean
   , isShakeEnabled :: Boolean
   , editedPickUpLocation :: EditedLocation
+  , homeEntryToast :: Maybe String
   }
 
 type EditedLocation = {
