@@ -56,7 +56,7 @@ import Lib.SessionizerMetrics.Types.Event
 import qualified SharedLogic.External.LocationTrackingService.Flow as LF
 import qualified SharedLogic.External.LocationTrackingService.Types as LT
 import SharedLogic.GoogleTranslate (TranslateFlow)
-import qualified Storage.Cac.GoHomeConfig as CGHC
+import qualified Storage.CachedQueries.GoHomeConfig as CGHC
 import qualified Storage.CachedQueries.Driver.GoHomeRequest as CQDGR
 import qualified Storage.Queries.Booking as QRB
 import qualified Storage.Queries.DriverGoHomeRequest as QDGR
@@ -199,7 +199,7 @@ cancelRideImpl ServiceHandle {..} requestorId rideId req isForceReallocation = d
           buildRideCancelationReason Nothing Nothing Nothing DBCR.ByMerchant ride (Just driver.merchantId) >>= \res -> return (res, Nothing, Nothing, DRide.CallBased)
         _ -> do
           unless (authPerson.id == driverId) $ throwError NotAnExecutor
-          goHomeConfig <- CGHC.findByMerchantOpCityId booking.merchantOperatingCityId (Just (TransactionId (Id booking.transactionId)))
+          goHomeConfig <- CGHC.findByMerchantOpCityId booking.merchantOperatingCityId (Just booking.configInExperimentVersions)
           dghInfo <- CQDGR.getDriverGoHomeRequestInfo driverId booking.merchantOperatingCityId (Just goHomeConfig)
           (cancellationCount, isGoToDisabled) <-
             if dghInfo.status == Just DDGR.ACTIVE
@@ -228,7 +228,7 @@ cancelRideImpl ServiceHandle {..} requestorId rideId req isForceReallocation = d
           let currentDriverLocation = getCoordinates <$> mbLocation
           logDebug "RideCancelled Coin Event by driver"
           fork "DriverRideCancelledCoin Event : " $ do
-            DC.driverCoinsEvent driverId driver.merchantId booking.merchantOperatingCityId (DCT.Cancellation ride.createdAt booking.distanceToPickup disToPickup) (Just ride.id.getId) ride.vehicleVariant
+            DC.driverCoinsEvent driverId driver.merchantId booking.merchantOperatingCityId (DCT.Cancellation ride.createdAt booking.distanceToPickup disToPickup) (Just ride.id.getId) ride.vehicleVariant (Just booking.configInExperimentVersions)
           buildRideCancelationReason currentDriverLocation updatedDisToPickup (Just driverId) DBCR.ByDriver ride (Just driver.merchantId) >>= \res -> return (res, cancellationCount, isGoToDisabled, DRide.Driver)
       return (rideCancellationReason, mbCancellationCnt, isGoToDisabled, rideEndedBy)
     DashboardRequestorId (reqMerchantId, _) -> do

@@ -173,7 +173,7 @@ endRideTransaction driverId booking ride mbFareParams mbRiderDetailsId newFarePa
   mbRiderDetails <- join <$> QRD.findById `mapM` mbRiderDetailsId
 
   let validRide = isValidRide ride
-  sendReferralFCM validRide ride mbRiderDetails thresholdConfig
+  sendReferralFCM validRide ride booking mbRiderDetails thresholdConfig
   when validRide $ updateLeaderboardZScore booking.providerId booking.merchantOperatingCityId ride
   DS.driverScoreEventHandler booking.merchantOperatingCityId DST.OnRideCompletion {merchantId = booking.providerId, driverId = cast driverId, ride = ride, fareParameter = Just newFareParams, ..}
   let currency = booking.currency
@@ -210,10 +210,11 @@ sendReferralFCM ::
   ) =>
   Bool ->
   Ride.Ride ->
+  SRB.Booking ->
   Maybe RD.RiderDetails ->
   TransporterConfig ->
   m ()
-sendReferralFCM validRide ride mbRiderDetails transporterConfig = do
+sendReferralFCM validRide ride booking mbRiderDetails transporterConfig = do
   now <- getCurrentTime
   let shouldUpdateRideComplete = validRide && maybe True (not . (.hasTakenValidRide)) mbRiderDetails
   whenJust mbRiderDetails $ \riderDetails -> do
@@ -227,7 +228,7 @@ sendReferralFCM validRide ride mbRiderDetails transporterConfig = do
                 referralTitle = "Your referred customer has completed their first Namma Yatri ride"
             sendNotificationToDriver driver.merchantOperatingCityId FCM.SHOW Nothing FCM.REFERRAL_ACTIVATED referralTitle referralMessage driver driver.deviceToken
             fork "DriverToCustomerReferralCoin Event : " $ do
-              DC.driverCoinsEvent driver.id driver.merchantId driver.merchantOperatingCityId (DCT.DriverToCustomerReferral ride) (Just ride.id.getId) ride.vehicleVariant
+              DC.driverCoinsEvent driver.id driver.merchantId driver.merchantOperatingCityId (DCT.DriverToCustomerReferral ride) (Just ride.id.getId) ride.vehicleVariant (Just booking.configInExperimentVersions)
           mbVehicle <- QV.findById referredDriverId
           let vehicleCategory = fromMaybe DVC.AUTO_CATEGORY ((.category) =<< mbVehicle)
           payoutConfig <- CPC.findByPrimaryKey driver.merchantOperatingCityId vehicleCategory Nothing >>= fromMaybeM (PayoutConfigNotFound (show vehicleCategory) driver.merchantOperatingCityId.getId)
@@ -567,7 +568,7 @@ createDriverFee merchantId merchantOpCityId driverId rideFare currency newFarePa
     now <- getLocalCurrentTime transporterConfig.timeDiffFromUtc
     vehicle <- QV.findById driverId
     let currentVehicleCategory = vehicle >>= (.category)
-    subscriptionConfig <- CQSC.findSubscriptionConfigsByMerchantOpCityIdAndServiceName merchantOpCityId serviceName
+    subscriptionConfig <- CQSC.findSubscriptionConfigsByMerchantOpCityIdAndServiceName merchantOpCityId (Just booking.configInExperimentVersions) serviceName
     let isPlanMandatoryForVariant = maybe False (\vcList -> isJust $ DL.find (\enabledVc -> maybe False (enabledVc ==) currentVehicleCategory) vcList) (subscriptionConfig >>= (.executionEnabledForVehicleCategories))
     (mbDriverPlan, isOnFreeTrial) <- getPlanAndPushToDefualtIfEligible transporterConfig subscriptionConfig freeTrialDaysLeft' isSpecialZoneCharge isPlanMandatoryForVariant currentVehicleCategory
     let enableCityBasedFeeSwitch = fromMaybe False $ subscriptionConfig <&> (.enableCityBasedFeeSwitch)

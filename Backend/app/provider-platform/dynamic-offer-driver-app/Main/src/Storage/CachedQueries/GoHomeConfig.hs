@@ -13,50 +13,39 @@
 -}
 {-# OPTIONS_GHC -Wno-deprecations #-}
 
-module Storage.CachedQueries.GoHomeConfig
-  {-# WARNING
-    "This module contains direct calls to the table and redis. \
-  \ But most likely you need a version from Cac with inMem results feature."
-    #-}
-where
+module Storage.CachedQueries.GoHomeConfig where
 
-import qualified Client.Main as CM
-import Control.Monad
-import Data.Text as Text
-import qualified Domain.Types.Cac as DTC
 import Domain.Types.GoHomeConfig
 import Domain.Types.MerchantOperatingCity (MerchantOperatingCity)
 import Kernel.Prelude
-import qualified Kernel.Storage.Hedis as Hedis
-import Kernel.Types.Cac
 import Kernel.Types.CacheFlow (CacheFlow)
 import Kernel.Types.Common
-import Kernel.Types.Error
+-- import Kernel.Types.Error
 import Kernel.Types.Id
-import Kernel.Utils.Error.Throwing
+-- import Kernel.Utils.Error.Throwing
 import Storage.Beam.SystemConfigs ()
 import qualified Storage.Queries.GoHomeConfig as Queries
+import qualified Tools.DynamicLogic as DynamicLogic
+import qualified Lib.Yudhishthira.Types as LYT
+import Storage.Beam.Yudhishthira ()
 
 create :: (MonadFlow m, EsqDBFlow m r, CacheFlow m r) => GoHomeConfig -> m ()
 create = Queries.create
 
-getGoHomeConfigFromDB :: (MonadFlow m, CacheFlow m r, EsqDBFlow m r) => Id MerchantOperatingCity -> m (Maybe GoHomeConfig)
-getGoHomeConfigFromDB id = do
-  Hedis.safeGet (makeGoHomeKey id) >>= \case
-    Just cfg -> return cfg
-    Nothing -> do
-      expTime <- fromIntegral <$> asks (.cacheConfig.configsExpTime)
-      cfg <- fromMaybeM (InternalError ("Could not find Go-To config corresponding to the stated merchant id" <> show id)) =<< Queries.findByMerchantOpCityId id
-      Hedis.setExp (makeGoHomeKey id) cfg expTime
-      return (Just cfg)
+findByMerchantOpCityId :: (CacheFlow m r, MonadFlow m, EsqDBFlow m r) => Id MerchantOperatingCity -> Maybe [LYT.ConfigVersionMap] -> m (Maybe GoHomeConfig)
+findByMerchantOpCityId id mbConfigVersionMap = 
+  DynamicLogic.findOneConfig
+    (cast id)
+    (LYT.DRIVER_CONFIG LYT.GoHomeConfig)
+    mbConfigVersionMap
+    Nothing
+    (Queries.findByMerchantOpCityId id)
 
-getConfigsFromMemory :: (CacheFlow m r, EsqDBFlow m r) => Id MerchantOperatingCity -> m (Maybe GoHomeConfig)
-getConfigsFromMemory id = do
-  isExpired <- DTC.updateConfig DTC.LastUpdatedGoHomeConfig
-  getConfigFromMemoryCommon (DTC.GoHomeConfig id.getId) isExpired CM.isExperimentsRunning
+-- Call it after any update
+clearCache :: (CacheFlow m r, EsqDBFlow m r) => Id MerchantOperatingCity -> m ()
+clearCache merchantOpCityId =
+  DynamicLogic.clearConfigCache
+    (cast merchantOpCityId)
+    (LYT.DRIVER_CONFIG LYT.GoHomeConfig)
+    Nothing
 
-findByMerchantOpCityId :: (CacheFlow m r, MonadFlow m, EsqDBFlow m r) => Id MerchantOperatingCity -> m GoHomeConfig
-findByMerchantOpCityId id = getGoHomeConfigFromDB id <&> fromJust
-
-makeGoHomeKey :: Id MerchantOperatingCity -> Text
-makeGoHomeKey id = "driver-offer:CachedQueries:GoHomeConfig:MerchantOpCityId-" <> id.getId

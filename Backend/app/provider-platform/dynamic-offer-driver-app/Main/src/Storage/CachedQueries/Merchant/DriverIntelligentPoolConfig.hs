@@ -22,42 +22,42 @@ module Storage.CachedQueries.Merchant.DriverIntelligentPoolConfig
     clearCache,
     update,
     getDriverIntelligentPoolConfigFromDB,
+    getDriverIntelligentPoolConfigFromDBInRideFlow,
   )
 where
 
-import Data.Coerce (coerce)
-import Data.Text as Text
-import Domain.Types.Common
 import Domain.Types.DriverIntelligentPoolConfig
 import Domain.Types.MerchantOperatingCity
 import Kernel.Prelude
-import qualified Kernel.Storage.Hedis as Hedis
 import Kernel.Types.Id
 import Kernel.Utils.Common
 import Storage.Beam.SystemConfigs ()
 import qualified Storage.Queries.DriverIntelligentPoolConfig as Queries
+import qualified Lib.Yudhishthira.Types as LYT
+import Storage.Beam.Yudhishthira ()
+import qualified Tools.DynamicLogic as DynamicLogic
 
 create :: (MonadFlow m, CacheFlow m r, EsqDBFlow m r) => DriverIntelligentPoolConfig -> m ()
 create = Queries.create
 
-getDriverIntelligentPoolConfigFromDB :: (CacheFlow m r, EsqDBFlow m r) => Id MerchantOperatingCity -> m (Maybe DriverIntelligentPoolConfig)
-getDriverIntelligentPoolConfigFromDB id =
-  Hedis.withCrossAppRedis (Hedis.safeGet $ makeMerchantOpCityIdKey id) >>= \case
-    Just a -> return . Just $ coerce @(DriverIntelligentPoolConfigD 'Unsafe) @DriverIntelligentPoolConfig a
-    Nothing -> flip whenJust cacheDriverIntelligentPoolConfig /=<< Queries.findByMerchantOpCityId id
+getDriverIntelligentPoolConfigFromDBInRideFlow :: (CacheFlow m r, EsqDBFlow m r) => Id MerchantOperatingCity -> [LYT.ConfigVersionMap] -> Maybe Value -> m (Maybe DriverIntelligentPoolConfig)
+getDriverIntelligentPoolConfigFromDBInRideFlow id configVersionMap extraDimensions = getDriverIntelligentPoolConfigFromDB id (Just configVersionMap) extraDimensions
 
-cacheDriverIntelligentPoolConfig :: CacheFlow m r => DriverIntelligentPoolConfig -> m ()
-cacheDriverIntelligentPoolConfig cfg = do
-  expTime <- fromIntegral <$> asks (.cacheConfig.configsExpTime)
-  let merchantIdKey = makeMerchantOpCityIdKey cfg.merchantOperatingCityId
-  Hedis.withCrossAppRedis $ Hedis.setExp merchantIdKey (coerce @DriverIntelligentPoolConfig @(DriverIntelligentPoolConfigD 'Unsafe) cfg) expTime
-
-makeMerchantOpCityIdKey :: Id MerchantOperatingCity -> Text
-makeMerchantOpCityIdKey id = "driver-offer:CachedQueries:DriverIntelligentPoolConfig:MerchantOperatingCityId-" <> id.getId
+getDriverIntelligentPoolConfigFromDB :: (CacheFlow m r, EsqDBFlow m r) => Id MerchantOperatingCity -> Maybe [LYT.ConfigVersionMap] -> Maybe Value -> m (Maybe DriverIntelligentPoolConfig)
+getDriverIntelligentPoolConfigFromDB id mbConfigVersionMap extraDimensions =
+  DynamicLogic.findOneConfig
+    (cast id)
+    (LYT.DRIVER_CONFIG LYT.DriverIntelligentPoolConfig)
+    mbConfigVersionMap
+    extraDimensions
+    (Queries.findByMerchantOpCityId id)
 
 -- Call it after any update
-clearCache :: Hedis.HedisFlow m r => Id MerchantOperatingCity -> m ()
-clearCache = Hedis.withCrossAppRedis . Hedis.del . makeMerchantOpCityIdKey
+clearCache :: (CacheFlow m r, EsqDBFlow m r) => Id MerchantOperatingCity -> m ()
+clearCache merchantOpCityId = DynamicLogic.clearConfigCache
+    (cast merchantOpCityId)
+    (LYT.DRIVER_CONFIG LYT.DriverIntelligentPoolConfig)
+    Nothing
 
 update :: (MonadFlow m, CacheFlow m r, EsqDBFlow m r) => DriverIntelligentPoolConfig -> m ()
 update = Queries.update

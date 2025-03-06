@@ -42,7 +42,7 @@ import qualified SharedLogic.External.LocationTrackingService.Types as LT
 import SharedLogic.FarePolicy
 import SharedLogic.GoogleTranslate (TranslateFlow)
 import Storage.Cac.DriverPoolConfig (getDriverPoolConfig)
-import qualified Storage.Cac.GoHomeConfig as CGHC
+import qualified Storage.CachedQueries.GoHomeConfig as CGHC
 import qualified Storage.CachedQueries.VehicleServiceTier as CQDVST
 import qualified Storage.CachedQueries.VehicleServiceTier as CQVST
 import qualified Storage.Queries.Booking as QRB
@@ -118,7 +118,7 @@ initiateDriverSearchBatch ::
 initiateDriverSearchBatch searchBatchInput@DriverSearchBatchInput {..} = do
   searchTry <- createNewSearchTry
   driverPoolConfig <- getDriverPoolConfig searchReq.merchantOperatingCityId searchTry.vehicleServiceTier searchTry.tripCategory (fromMaybe SL.Default searchReq.area) searchReq.estimatedDistance searchTry.searchRepeatType searchTry.searchRepeatCounter (Just (TransactionId (Id searchReq.transactionId))) searchReq
-  goHomeCfg <- CGHC.findByMerchantOpCityId searchReq.merchantOperatingCityId (Just (TransactionId (Id searchReq.transactionId)))
+  goHomeCfg <- CGHC.findByMerchantOpCityId searchReq.merchantOperatingCityId (Just searchReq.configInExperimentVersions)
   singleBatchProcessingTempDelay <- asks (.singleBatchProcessingTempDelay)
   now <- getCurrentTime
   let batchTime = fromIntegral driverPoolConfig.singleBatchProcessTime + singleBatchProcessingTempDelay

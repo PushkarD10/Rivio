@@ -24,41 +24,44 @@ module Storage.CachedQueries.Merchant.TransporterConfig
     updateFCMConfig,
     updateReferralLinkPassword,
     getTransporterConfigFromDB,
+    getTransporterConfigFromDBInRideFlow,
   )
 where
 
-import Data.Coerce (coerce)
-import Domain.Types.Common
 import Domain.Types.MerchantOperatingCity
 import Domain.Types.TransporterConfig
 import Kernel.Prelude as KP
-import qualified Kernel.Storage.Hedis as Hedis
 import Kernel.Types.Id
 import Kernel.Utils.Common
 import Storage.Beam.SystemConfigs ()
 import qualified Storage.Queries.TransporterConfig as Queries
+import qualified Tools.DynamicLogic as DynamicLogic
+import qualified Lib.Yudhishthira.Types as LYT
+import Storage.Beam.Yudhishthira ()
 
 create :: (MonadFlow m, CacheFlow m r, EsqDBFlow m r) => TransporterConfig -> m ()
 create = Queries.create
 
-getTransporterConfigFromDB :: (MonadFlow m, CacheFlow m r, EsqDBFlow m r) => Id MerchantOperatingCity -> m (Maybe TransporterConfig)
-getTransporterConfigFromDB id = do
-  Hedis.withCrossAppRedis (Hedis.safeGet $ makeMerchantOpCityIdKey id) >>= \case
-    Just a -> return . Just $ coerce @(TransporterConfigD 'Unsafe) @TransporterConfig a
-    Nothing -> flip whenJust cacheTransporterConfig /=<< Queries.findByMerchantOpCityId id
+getTransporterConfigFromDB :: (MonadFlow m, CacheFlow m r, EsqDBFlow m r) => Id MerchantOperatingCity -> Maybe [LYT.ConfigVersionMap] -> m (Maybe TransporterConfig)
+getTransporterConfigFromDB id mbConfigVersionMap =
+  DynamicLogic.findOneConfig
+    (cast id)
+    (LYT.DRIVER_CONFIG LYT.TransporterConfig)
+    mbConfigVersionMap
+    Nothing
+    (Queries.findByMerchantOpCityId id)
 
-cacheTransporterConfig :: (CacheFlow m r) => TransporterConfig -> m ()
-cacheTransporterConfig cfg = do
-  expTime <- fromIntegral <$> asks (.cacheConfig.configsExpTime)
-  let merchantIdKey = makeMerchantOpCityIdKey cfg.merchantOperatingCityId
-  Hedis.withCrossAppRedis $ Hedis.setExp merchantIdKey (coerce @TransporterConfig @(TransporterConfigD 'Unsafe) cfg) expTime
-
-makeMerchantOpCityIdKey :: Id MerchantOperatingCity -> Text
-makeMerchantOpCityIdKey id = "driver-offer:CachedQueries:TransporterConfig:MerchantOperatingCityId-" <> id.getId
+getTransporterConfigFromDBInRideFlow :: (CacheFlow m r, EsqDBFlow m r) => Id MerchantOperatingCity -> [LYT.ConfigVersionMap] -> m (Maybe TransporterConfig)
+getTransporterConfigFromDBInRideFlow id configVersionMap =
+  getTransporterConfigFromDB id (Just configVersionMap)
 
 -- Call it after any update
-clearCache :: Hedis.HedisFlow m r => Id MerchantOperatingCity -> m ()
-clearCache = Hedis.withCrossAppRedis . Hedis.del . makeMerchantOpCityIdKey
+clearCache :: (CacheFlow m r, EsqDBFlow m r) => Id MerchantOperatingCity -> m ()
+clearCache merchantOpCityId =
+  DynamicLogic.clearConfigCache
+    (cast merchantOpCityId)
+    (LYT.DRIVER_CONFIG LYT.TransporterConfig)
+    Nothing
 
 updateFCMConfig :: (MonadFlow m, CacheFlow m r, EsqDBFlow m r) => Id MerchantOperatingCity -> BaseUrl -> Text -> m ()
 updateFCMConfig = Queries.updateFCMConfig

@@ -295,8 +295,8 @@ handler ValidatedDSearchReq {..} sReq = do
   for_ quotes QQuote.create
 
   forM_ estimates $ \est -> triggerEstimateEvent EstimateEventData {estimate = est, merchantId = merchantId'}
-  driverInfoQuotes <- addNearestDriverInfo merchantOpCityId driverPool quotes
-  driverInfoEstimates <- addNearestDriverInfo merchantOpCityId driverPool estimates
+  driverInfoQuotes <- addNearestDriverInfo merchantOpCityId driverPool quotes sReq.configInExperimentVersions
+  driverInfoEstimates <- addNearestDriverInfo merchantOpCityId driverPool estimates sReq.configInExperimentVersions
   buildDSearchResp sReq.pickupLocation sReq.dropLocation (stopsLatLong sReq.stops) spcllocationTag searchMetricsMVar driverInfoQuotes driverInfoEstimates specialLocationName now sReq.fareParametersInRateCard
   where
     stopsLatLong = map (.gps)
@@ -324,7 +324,7 @@ handler ValidatedDSearchReq {..} sReq = do
       ([DEst.Estimate], [DQuote.Quote]) ->
       Flow ([DEst.Estimate], [DQuote.Quote])
     processPolicy buildEstimateHelper buildQuoteHelper fp (estimates, quotes) = do
-      mbVehicleServiceTierItem <- CQVST.findByServiceTierTypeAndCityId fp.vehicleServiceTier merchantOpCityId
+      mbVehicleServiceTierItem <- CQVST.findByServiceTierTypeAndCityIdInRideFlow fp.vehicleServiceTier merchantOpCityId sReq.configInExperimentVersions
       case mbVehicleServiceTierItem of
         Just vehicleServiceTierItem ->
           case tripCategoryToPricingPolicy fp.tripCategory of
@@ -395,10 +395,11 @@ addNearestDriverInfo ::
   Id DMOC.MerchantOperatingCity ->
   Maybe (NonEmpty DriverPoolResult) ->
   [a] ->
+  [LYT.ConfigVersionMap] ->
   Flow [(a, DVST.VehicleServiceTier, Maybe NearestDriverInfo, Maybe BaseUrl)]
-addNearestDriverInfo merchantOpCityId Nothing estdOrQuotes = do
+addNearestDriverInfo merchantOpCityId Nothing estdOrQuotes configInExperimentVersions = do
   forM estdOrQuotes $ \estdOrQuote -> do
-    vehicleServiceTierItem <- CQVST.findByServiceTierTypeAndCityId estdOrQuote.vehicleServiceTier merchantOpCityId >>= fromMaybeM (VehicleServiceTierNotFound (show estdOrQuote.vehicleServiceTier))
+    vehicleServiceTierItem <- CQVST.findByServiceTierTypeAndCityIdInRideFlow estdOrQuote.vehicleServiceTier merchantOpCityId configInExperimentVersions >>= fromMaybeM (VehicleServiceTierNotFound (show estdOrQuote.vehicleServiceTier))
     return (estdOrQuote, vehicleServiceTierItem, Nothing, vehicleServiceTierItem.vehicleIconUrl)
 addNearestDriverInfo merchantOpCityId (Just driverPool) estdOrQuotes = do
   let mapOfDPRByServiceTier = foldl (\m dpr -> M.insertWith (<>) dpr.serviceTier (pure dpr) m) mempty driverPool
@@ -410,7 +411,7 @@ addNearestDriverInfo merchantOpCityId (Just driverPool) estdOrQuotes = do
       a ->
       Flow (a, DVST.VehicleServiceTier, Maybe NearestDriverInfo, Maybe BaseUrl)
     matchInputWithNearestDriver driverPools input = do
-      vehicleServiceTierItem <- CQVST.findByServiceTierTypeAndCityId input.vehicleServiceTier merchantOpCityId >>= fromMaybeM (VehicleServiceTierNotFound (show input.vehicleServiceTier))
+      vehicleServiceTierItem <- CQVST.findByServiceTierTypeAndCityIdInRideFlow input.vehicleServiceTier merchantOpCityId configInExperimentVersions >>= fromMaybeM (VehicleServiceTierNotFound (show input.vehicleServiceTier))
       let driverPool' = M.lookup input.vehicleServiceTier driverPools
       case driverPool' of
         Nothing -> return (input, vehicleServiceTierItem, Nothing, vehicleServiceTierItem.vehicleIconUrl)
@@ -424,7 +425,7 @@ addNearestDriverInfo merchantOpCityId (Just driverPool) estdOrQuotes = do
 selectDriversAndMatchFarePolicies :: DM.Merchant -> Id DMOC.MerchantOperatingCity -> Maybe Meters -> DLoc.Location -> DTMT.TransporterConfig -> Bool -> SL.Area -> [DFP.FullFarePolicy] -> UTCTime -> Bool -> DSR.SearchRequest -> Flow ([DriverPoolResult], [DFP.FullFarePolicy])
 selectDriversAndMatchFarePolicies merchant merchantOpCityId mbDistance fromLocation transporterConfig isScheduled area farePolicies now isValueAddNP sreq = do
   driverPoolCfg <- CDP.getSearchDriverPoolConfig merchantOpCityId mbDistance area sreq
-  cityServiceTiers <- CQVST.findAllByMerchantOpCityId merchantOpCityId
+  cityServiceTiers <- CQVST.findAllByMerchantOpCityIdInRideFlow merchantOpCityId sreq.configInExperimentVersions
   let calculateDriverPoolReq =
         CalculateDriverPoolReq
           { poolStage = Estimate,

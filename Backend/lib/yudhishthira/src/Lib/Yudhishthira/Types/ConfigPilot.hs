@@ -36,6 +36,7 @@ data ConfigType
   | Toll
   | CancellationFarePolicy
   | SurgePricing
+  | VehicleServiceTier
   deriving (Eq, Ord, Show, Read, Generic, ToJSON, FromJSON, ToSchema, Enum, Bounded, ToParamSchema)
 
 $(mkHttpInstancesForEnum ''ConfigType)
