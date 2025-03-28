@@ -1144,7 +1144,8 @@ newtype RideBookingRes = RideBookingRes {
   vehicleServiceTierSeatingCapacity :: Maybe Int,
   vehicleServiceTierAirConditioned :: Maybe Number,
   returnTime :: Maybe String,
-  isAirConditioned :: Maybe Boolean
+  isAirConditioned :: Maybe Boolean,
+  isSafetyPlus :: Maybe Boolean
 }
 
 newtype RideBookingStatusRes = RideBookingStatusRes {
