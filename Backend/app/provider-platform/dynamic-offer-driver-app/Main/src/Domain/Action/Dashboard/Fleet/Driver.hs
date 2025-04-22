@@ -48,10 +48,6 @@ module Domain.Action.Dashboard.Fleet.Driver
     postDriverDashboardFleetTrackDriver,
     getDriverFleetWmbRouteDetails,
     postDriverFleetGetNearbyDrivers,
-    parseDriverInfo,
-    fetchOrCreatePerson,
-    CreateDriversCSVRow,
-    DriverDetails,
   )
 where
 
@@ -1205,7 +1201,7 @@ checkRequestorAccessToFleet mbRequestorId fleetOwnerId = do
           association <-
             QFleetOperatorAssociation.findByFleetIdAndOperatorId fleetOwner.id.getId requestor.id.getId True
               >>= fromMaybeM (InvalidRequest "FleetOperatorAssociation does not exist") -- TODO add error codes
-          whenJust association.associatedTill \associatedTill -> do
+          whenJust association.associatedTill $ \associatedTill -> do
             now <- getCurrentTime
             when (now > associatedTill) $
               throwError (InvalidRequest "FleetOperatorAssociation expired")
@@ -1268,7 +1264,6 @@ postDriverFleetVerifyJoiningOtp merchantShortId opCity fleetOwnerId mbAuthId mbR
     Just authId -> do
       smsCfg <- asks (.smsCfg)
       deviceToken <- fromMaybeM (DeviceTokenNotFound) $ req.deviceToken
-
       void $ DRBReg.verify authId True fleetOwnerId Common.AuthVerifyReq {otp = req.otp, deviceToken = deviceToken}
 
       SA.endDriverAssociationsIfAllowed merchant merchantOpCityId person
@@ -1841,7 +1836,7 @@ postDriverFleetAddDrivers merchantShortId opCity mbRequestorId req = do
           association <-
             QFleetOperatorAssociation.findByFleetIdAndOperatorId fleetOwner.id.getId operator.id.getId True
               >>= fromMaybeM (InvalidRequest "FleetOperatorAssociation does not exist") -- TODO add error codes
-          whenJust association.associatedTill \associatedTill -> do
+          whenJust association.associatedTill $ \associatedTill -> do
             now <- getCurrentTime
             when (now > associatedTill) $
               throwError (InvalidRequest "FleetOperatorAssociation expired")
@@ -1850,19 +1845,12 @@ postDriverFleetAddDrivers merchantShortId opCity mbRequestorId req = do
     linkDriverToFleetOwner :: DM.Merchant -> DMOC.MerchantOperatingCity -> DP.Person -> DriverDetails -> Flow () -- TODO: create single query to update all later
     linkDriverToFleetOwner merchant moc fleetOwner req_ = do
       person <- fetchOrCreatePerson moc req_
-
-      -- QFDV.findByDriverId person.id True
-      --   >>= \case
-      --     Just fleetDriverAssociation -> do
-      --       unless (fleetDriverAssociation.driverId == person.id) $ throwError (InvalidRequest "Driver already exists in another fleet")
-      --     Nothing -> return ()
-
       WMB.checkFleetDriverAssociation person.id fleetOwner.id
         >>= \isAssociated -> unless isAssociated $ do
           fork "Sending Fleet Consent SMS to Driver" $ do
             void $
               try @_ @SomeException (SA.endDriverAssociationsIfAllowed merchant moc.id person) >>= \case
-                Left err -> logError $ "Unable to add Driver (" <> req_.driverPhoneNumber <> ") to the Fleet: " <> (T.pack $ displayException err)
+                Left err -> logError $ "Unable to add Driver (" <> req_.driverPhoneNumber <> ") to the Fleet: " <> T.pack (displayException err)
                 Right _ -> do
                   let driverMobile = req_.driverPhoneNumber
                   FDV.createFleetDriverAssociationIfNotExists person.id fleetOwner.id req_.driverOnboardingVehicleCategory False
@@ -1875,7 +1863,7 @@ postDriverFleetAddDrivers merchantShortId opCity mbRequestorId req = do
         >>= \isAssociated -> unless isAssociated $ do
           fork "Sending Operator Consent SMS to Driver" $ do
             try @_ @SomeException (SA.endDriverAssociationsIfAllowed merchant moc.id person) >>= \case
-              Left err -> logError $ "Unable to add Driver (" <> req_.driverPhoneNumber <> ") to the Fleet: " <> (T.pack $ displayException err)
+              Left err -> logError $ "Unable to add Driver (" <> req_.driverPhoneNumber <> ") to the Operator: " <> T.pack (displayException err)
               Right _ -> do
                 let driverMobile = req_.driverPhoneNumber
                 QDOA.createDriverOperatorAssociationIfNotExists moc person.id operator.id req_.driverOnboardingVehicleCategory False
