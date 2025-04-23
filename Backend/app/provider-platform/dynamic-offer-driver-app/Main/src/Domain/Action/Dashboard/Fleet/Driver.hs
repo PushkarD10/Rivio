@@ -1788,7 +1788,7 @@ postDriverFleetAddDrivers merchantShortId opCity mbRequestorId req = do
               try @_ @SomeException
                 (func driverDetail)
                 >>= \case
-                  Left err -> return $ unprocessedEntities <> ["Unable to add Driver (" <> driverDetail.driverPhoneNumber <> ") to the Fleet: " <> (T.pack $ displayException err)]
+                  Left err -> return $ unprocessedEntities <> ["Unable to add Driver (" <> driverDetail.driverPhoneNumber <> ") to the Fleet: " <> T.pack (displayException err)]
                   Right _ -> return unprocessedEntities
           )
           []

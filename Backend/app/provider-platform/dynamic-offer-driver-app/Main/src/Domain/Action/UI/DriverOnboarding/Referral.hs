@@ -141,20 +141,6 @@ getReferredDrivers (personId, _, _) = do
   let totalRef = fromMaybe 0 di.totalReferred
   pure $ GetReferredDriverRes {value = totalRef}
 
-incrementOnboardedDriverCountByOperator :: Id Person.Person -> Flow ()
-incrementOnboardedDriverCountByOperator referredOperatorId = do
-  let lockKey = "Driver:Referral:Increment:" <> getId referredOperatorId
-  Redis.withWaitAndLockRedis lockKey 10 5000 $ do
-    mbDriverStats <- QDriverStats.findByPrimaryKey referredOperatorId
-    case mbDriverStats of
-      Nothing -> do
-        logTagError "INCREMENT_DRIVER_COUNT" ("DriverStats not found for operator " <> show referredOperatorId)
-        throwError $ InternalError "DriverStats not found for operator"
-      Just driverStats -> do
-        let newCount = driverStats.numDriversOnboarded + 1
-        QDriverStats.updateNumDriversOnboarded newCount referredOperatorId
-        logTagInfo "INCREMENT_DRIVER_COUNT" $ "Successfully incremented driver count for " <> show referredOperatorId <> " to " <> show newCount
-
 checkDriverHasNoAssociation :: (EncFlow m r, EsqDBFlow m r, CacheFlow m r) => Id Person.Person -> m Bool
 checkDriverHasNoAssociation driverId = do
   mbOperatorAssoc <- QDOA.findByDriverId (cast driverId) True

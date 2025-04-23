@@ -61,7 +61,7 @@ endDriverAssociationsIfAllowed merchant merchantOpCityId driver = do
 
         -- send notification to existing operator about driver unlink
         mbExistingOperator <- B.runInReplica $ QP.findById (Id existingAssociation.operatorId :: Id DP.Person)
-        whenJust mbExistingOperator \existingOperator -> do
+        whenJust mbExistingOperator $ \existingOperator -> do
           mbMerchantPN <- CPN.findMatchingMerchantPN merchantOpCityId (show Notification.DRIVER_UNLINK_FROM_OPERATOR) Nothing Nothing existingOperator.language Nothing
           whenJust mbMerchantPN $ \merchantPN -> do
             let title = T.replace "{#driverName#}" driverFullName . T.replace "{#driverNo#}" driverMobile $ merchantPN.title
@@ -86,7 +86,7 @@ endFleetAssociationsIfAllowed merchant merchantOpCityId fleetOwner = do
 
         -- send notification to existing operator about fleet unlink
         mbExistingOperator <- B.runInReplica $ QP.findById (Id existingAssociation.operatorId :: Id DP.Person)
-        whenJust mbExistingOperator \existingOperator -> do
+        whenJust mbExistingOperator $ \existingOperator -> do
           mbMerchantPN <- CPN.findMatchingMerchantPN merchantOpCityId (show Notification.FLEET_UNLINK_FROM_OPERATOR) Nothing Nothing existingOperator.language Nothing
           whenJust mbMerchantPN $ \merchantPN -> do
             let title = T.replace "{#fleetName#}" fleetOwnerFullName . T.replace "{#fleetNo#}" fleetOwnerMobile $ merchantPN.title
