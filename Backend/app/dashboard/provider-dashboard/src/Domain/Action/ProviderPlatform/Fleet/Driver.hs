@@ -58,14 +58,15 @@ import qualified "dashboard-helper-api" API.Types.ProviderPlatform.Fleet.Driver 
 import qualified "dashboard-helper-api" Dashboard.Common as DCommon
 import qualified "dashboard-helper-api" Dashboard.ProviderPlatform.Management.DriverRegistration as Registration
 import qualified Data.ByteString.Lazy as LBS
-import Data.Text hiding (filter, find, length, map, null)
+import Data.Text hiding (elem, filter, find, length, map, null)
 import "lib-dashboard" Domain.Action.Dashboard.Person as DPerson
 import Domain.Types.Alert
 import Domain.Types.FleetMemberAssociation as DFMA
 import qualified "lib-dashboard" Domain.Types.Merchant as DM
+import qualified Domain.Types.Role as DRole
 import qualified "lib-dashboard" Domain.Types.Transaction as DT
 import "lib-dashboard" Environment
-import EulerHS.Prelude hiding (find, length, map, null)
+import EulerHS.Prelude hiding (elem, find, length, map, null)
 import Kernel.External.Maps.Types (LatLong)
 import Kernel.Prelude
 import Kernel.Types.APISuccess (APISuccess (..))
@@ -113,10 +114,17 @@ getFleetOwnerId memberPersonId mbFleetOwnerId = do
 getFleetOwnerAndRequestorIdMerchantBased :: ApiTokenInfo -> Maybe Text -> Flow (Text, Text)
 getFleetOwnerAndRequestorIdMerchantBased apiTokenInfo mbFleetOwnerId = do
   case apiTokenInfo.merchant.hasFleetMemberHierarchy of
-    Just False -> return (fromMaybe apiTokenInfo.personId.getId mbFleetOwnerId, apiTokenInfo.personId.getId) -- MSIL: requestor is fleet owner or operator, access check on bpp side required!
+    Just False -> do
+      -- MSIL: requestor is fleet owner or operator, access check on bpp side required!
+      let fleetOwnerId = fromMaybe apiTokenInfo.personId.getId mbFleetOwnerId
+          requestorId = apiTokenInfo.personId.getId
+      when (apiTokenInfo.dashboardAccessType `elem` [Just DRole.FLEET_OWNER, Just DRole.RENTAL_FLEET_OWNER]) $
+        unless (fleetOwnerId == requestorId) $ throwError AccessDenied
+      return (fleetOwnerId, requestorId)
     _ -> do
-      fleetOwner <- getFleetOwnerId apiTokenInfo.personId.getId mbFleetOwnerId
-      return (fleetOwner, fleetOwner) -- Existing flow: consider requestor the same as fleet owner, fleet member operates on befalf of fleet owner
+      -- Existing flow: consider requestor the same as fleet owner, fleet member operates on befalf of fleet owner
+      fleetOwnerId <- getFleetOwnerId apiTokenInfo.personId.getId mbFleetOwnerId
+      return (fleetOwnerId, fleetOwnerId)
 
 ------------------------------------- Multiple Fleet Owners Access --------------------------------------
 getFleetOwnerIds :: Text -> Maybe Text -> Flow [(Text, Text)]
