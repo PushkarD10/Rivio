@@ -1025,6 +1025,7 @@ TransporterConfig:
     enableExistingVehicleInBulkUpload: Bool
     onboardingDocsCountLimit: Maybe Int
 
+    liveEKD: Maybe Bool
   beamType:
     currency: Maybe Currency
     distanceUnit: Maybe DistanceUnit
@@ -1418,6 +1419,7 @@ TransporterConfig:
     requireRouteMappingInVehicle: "true"
     enableExistingVehicleInBulkUpload: "false"
     onboardingDocsCountLimit: "50"
+    liveEKD: "false"
 
   excludedDefaultQueries:
     - findByPrimaryKey
