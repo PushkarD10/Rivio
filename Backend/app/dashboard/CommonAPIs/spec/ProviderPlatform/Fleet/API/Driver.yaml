@@ -790,10 +790,12 @@ apis:
         userActionType: ApiAuth DRIVER_OFFER_BPP_MANAGEMENT FLEET LINK_RC_WITH_DRIVER
       helperApi:
         - POST:
-            endpoint: /fleet/linkRCWithDriver/{fleetOwnerId}
+            endpoint: /fleet/linkRCWithDriver/{requestorId}
             auth: ApiAuthV2
             params:
-              fleetOwnerId: Text
+              requestorId: Text
+            query:
+             - fleetOwnerId: Text
             request:
               type: LinkRCWithDriverForFleetReq
             response:
@@ -966,7 +968,7 @@ types:
     - model: Text
     - make: Text
     - airConditioned: Maybe Bool
-    - driverName: Text
+    - driverName: Maybe Text
     - imageId: Maybe (Id Image)
     - vehicleCategory: Maybe VehicleCategory
     - oxygen: Maybe Bool
@@ -1136,6 +1138,7 @@ types:
   CreateVehiclesReq:
     - file: FilePath
     - fleetOwnerId: Maybe Text
+    - requestorId: Maybe Text
     - derive: "'HideSecrets"
   FleetOwnerInfoRes:
     - blocked: Bool
