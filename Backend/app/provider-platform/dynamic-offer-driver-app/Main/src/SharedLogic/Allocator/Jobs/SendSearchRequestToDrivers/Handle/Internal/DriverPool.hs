@@ -63,6 +63,7 @@ import qualified Kernel.Storage.Hedis as Redis
 import Kernel.Types.Error
 import Kernel.Types.Id
 import Kernel.Utils.Common
+import Kernel.Utils.DatastoreLatencyCalculator
 import Kernel.Utils.SlidingWindowCounters
 import Lib.Queries.GateInfo
 import qualified Lib.Yudhishthira.Tools.Utils as LYTU
@@ -576,7 +577,9 @@ previouslyAttemptedDrivers searchTryId consideOnRideDrivers = do
 makeTaggedDriverPool ::
   ( CacheFlow m r,
     EsqDBFlow m r,
-    MonadFlow m
+    MonadFlow m,
+    HasField "enableAPILatencyLogging" r Bool,
+    HasField "enableAPIPrometheusMetricLogging" r Bool
   ) =>
   Id MerchantOperatingCity ->
   Seconds ->
@@ -595,7 +598,7 @@ makeTaggedDriverPool mOCityId timeDiffFromUtc searchReq onlyNewDrivers batchSize
   updateVersionInSearchReq mbVersion
   let onlyNewDriversWithCustomerInfo = map updateDriverPoolWithActualDistResult onlyNewDrivers
   let taggedDriverPoolInput = TaggedDriverPoolInput {drivers = onlyNewDriversWithCustomerInfo, needOnRideDrivers = isOnRidePool, batchNum}
-  resp <- LYTU.runLogics allLogics taggedDriverPoolInput
+  resp <- withTimeAPI "driverPooling" "runLogics" $ LYTU.runLogics allLogics taggedDriverPoolInput
   sortedPool' <-
     case (A.fromJSON resp.result :: Result TaggedDriverPoolInput) of
       A.Success sortedPoolData -> pure sortedPoolData.drivers
