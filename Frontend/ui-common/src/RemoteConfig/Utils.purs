@@ -14,7 +14,7 @@
 -}
 module Common.RemoteConfig.Utils where
 
-import Common.RemoteConfig.Types (RemoteConfig, RCCarousel(..), VariantLevelRemoteConfig(..), InvoiceConfig(..), ForwardBatchConfigData(..), TipsConfig, defaultForwardBatchConfigData, SubscriptionConfigVariantLevelEntity, SubscriptionConfigVariantLevel, GullakConfig, StuckRideFilterConfig, FeaturesConfigData(..), LottieSubscriptionInfo(..), LanguageKeyValue(..), defaultFeaturesConfigData, AppLanguage, AppConfigRC)
+import Common.RemoteConfig.Types (RemoteConfig, RCCarousel(..), VariantLevelRemoteConfig(..), InvoiceConfig(..), ForwardBatchConfigData(..), TipsConfig, defaultForwardBatchConfigData, SubscriptionConfigVariantLevelEntity, SubscriptionConfigVariantLevel, GullakConfig, StuckRideFilterConfig, FeaturesConfigData(..), LottieSubscriptionInfo(..), LanguageKeyValue(..), defaultFeaturesConfigData, AppLanguage, AppConfigRC, AppCities)
 import DecodeUtil (decodeForeignObject, parseJSON, setAnyInWindow)
 import Data.String (null, toLower)
 import Data.Maybe (Maybe(..))
@@ -27,6 +27,7 @@ import DecodeUtil (getAnyFromWindow)
 import MerchantConfig.Utils (getMerchant, Merchant(..))
 import Common.Types.App (LazyCheck(..))
 import Common.RemoteConfig.Types as Types
+import Debug
 
 foreign import fetchRemoteConfigString :: String -> String
 
@@ -157,6 +158,7 @@ getAppBasedConfig config app = case app of
   "Odisha Yatri" -> fromMaybe config.default config.odishaYatri
   "Yatri" -> fromMaybe config.default config.yatri
   "Yatri Sathi" -> fromMaybe config.default config.yatriSathi
+  "ONDC Fleet X" -> fromMaybe config.default config.ondcFleetX
   _ -> config.default
 
 getCityBasedConfig :: forall a. RemoteConfig a -> String -> a
@@ -404,6 +406,7 @@ defaultAppRemoteConfig defaultValue =
   , manaYatriPartner: Just defaultValue
   , yatriSathi: Just defaultValue
   , yatriSathiPartner: Just defaultValue
+  , ondcFleetX: Just defaultValue
   , default: defaultValue 
   }
 
@@ -437,6 +440,13 @@ defaultLanguageConfig =
     }
   ]
 
+defaultAppCities :: AppCities
+defaultAppCities = 
+  {
+    cityNames : ["Delhi", "Gurugram", "Noida"],
+    enableChangeCity : true   
+  }
+
 stuckRideFilterConfig :: String -> StuckRideFilterConfig
 stuckRideFilterConfig _ =
   let config = fetchRemoteConfigString "stuck_ride_filter"
@@ -452,6 +462,16 @@ appLanguageConfig :: String -> Array AppLanguage
 appLanguageConfig appName = do
   let config = fetchRemoteConfigString "enabled_app_languages"
       value = decodeForeignObject (parseJSON config) $ defaultAppRemoteConfig defaultLanguageConfig
+      _ = spy "printing appLanguageConfig" value
+      _ = spy "printing appName" appName
+  getAppBasedConfig value appName
+
+selectCityConfig :: String -> AppCities
+selectCityConfig appName = do
+  let config = fetchRemoteConfigString "enabled_app_cities"
+      value = decodeForeignObject (parseJSON config) $ defaultAppRemoteConfig defaultAppCities
+      _ = spy "printing selectCityConfig" value
+      _ = spy "printing appName" appName
   getAppBasedConfig value appName
 
 defaultOfferBannerConfig :: Types.OfferBanner

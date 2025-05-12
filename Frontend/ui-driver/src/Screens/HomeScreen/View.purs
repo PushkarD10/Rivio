@@ -1171,7 +1171,7 @@ offlineView push state =
                     [ height $ V 132
                     , width $ V 132
                     , cornerRadius 75.0
-                    , background if showGoInYellow then Color.yellowText else state.data.config.themeColors.goOnlineColor
+                    , background if showGoInYellow then Color.yellowText else Color.green900
                     , onClick  push  (const $ SwitchDriverStatus Online)
                     , rippleColor Color.rippleShade
                     ][]
@@ -1236,7 +1236,7 @@ driverDetail push state =
       , visibility $ boolToVisibility $ not $ isJust state.data.activeRide.disabilityTag && rideAccStage && state.data.cityConfig.enableAdvancedBooking || state.data.activeRide.bookingFromOtherPlatform
       ](DA.mapWithIndex (\index item ->
           driverStatusPill item push state index
-        ) driverStatusIndicators
+        ) (driverStatusIndicators state)
       ) 
     
     rideAccStage =  DA.any (_ == state.props.currentStage) [RideAccepted, RideStarted, ChatWithCustomer]

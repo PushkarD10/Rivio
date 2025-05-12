@@ -75,6 +75,8 @@ import Common.Types.App (CategoryListType)
 import Services.API
 import Screens.DocumentCaptureScreen.ScreenData as DocumentCaptureScreenData
 import Screens.DocumentDetailsScreen.ScreenData as DocumentDetailsScreenData
+import Screens.OnboardingFaqsScreen.ScreenData as OnboardingFaqsScreenData
+import Screens.OperationHubScreen.ScreenData as OperationHubScreenData
 import Screens.DriverCompleteProfileScreen.ScreenData as DriverCompleteProfileScreenData
 import Screens.RateCardScreen.ScreenData as RateCardScreenData
 import Screens.CustomerReferralTrackerScreen.ScreenData as CustomerReferralTrackerScreenData
@@ -138,6 +140,8 @@ newtype GlobalState = GlobalState {
   , lmsVideoScreen :: LmsVideoScreenState
   , lmsQuizScreen :: LmsQuizScreenState
   , documentDetailsScreen :: DocumentDetailsScreenState
+  , onboardingFaqsScreen :: OnboardingFaqsScreenState
+  , operationHubScreen :: OperationHubScreenState
   , driverCompleteProfileScreen :: DriverCompleteProfileScreenState
   , rateCardScreen :: RateCardScreenState
   , customerReferralTrackerScreen :: CustomerReferralScreenTypes.CustomerReferralTrackerScreenState
@@ -201,6 +205,8 @@ defaultGlobalState = GlobalState {
 , lmsVideoScreen : LmsVideoScreenData.initData
 , lmsQuizScreen : LmsQuizScreenData.initData
 , documentDetailsScreen : DocumentDetailsScreenData.initData
+, onboardingFaqsScreen : OnboardingFaqsScreenData.initData
+, operationHubScreen : OperationHubScreenData.initData
 , driverCompleteProfileScreen : DriverCompleteProfileScreenData.initData
 , rateCardScreen : RateCardScreenData.initData
 , customerReferralTrackerScreen : CustomerReferralTrackerScreenData.initData
@@ -274,6 +280,8 @@ data ScreenType =
   | LmsQuizScreenStateType (LmsQuizScreenState -> LmsQuizScreenState)
   | DocumentCaptureScreenStateType (DocumentCaptureScreenState -> DocumentCaptureScreenState)
   | DocumentDetailsScreenStateType (DocumentDetailsScreenState -> DocumentDetailsScreenState)
+  | OnboardingFaqsScreenStateType (OnboardingFaqsScreenState -> OnboardingFaqsScreenState)
+  | OperationHubScreenStateType (OperationHubScreenState -> OperationHubScreenState)
   | DriverCompleteProfileScreenStateType (DriverCompleteProfileScreenState -> DriverCompleteProfileScreenState)
   | RateCardScreenStateType (RateCardScreenState -> RateCardScreenState)
   | CustomerReferralTrackerScreenStateType (CustomerReferralScreenTypes.CustomerReferralTrackerScreenState -> CustomerReferralScreenTypes.CustomerReferralTrackerScreenState)
@@ -399,6 +407,23 @@ data REGISTRATION_SCREEN_OUTPUT = UPLOAD_DRIVER_LICENSE RegistrationScreenState
                                 | AADHAAR_PAN_SELFIE_UPLOAD RegistrationScreenState HyperVergeKycResult
                                 | GO_TO_APP_UPDATE_POPUP_SCREEN RegistrationScreenState
 
+data REGISTRATION_SCREEN_V2_OUTPUT = UPLOAD_DRIVER_LICENSE_V2 RegistrationScreenState
+                                | UPLOAD_VEHICLE_DETAILS_V2 RegistrationScreenState (Array String)
+                                | PERMISSION_SCREEN_V2 RegistrationScreenState
+                                | LOGOUT_FROM_REGISTERATION_SCREEN_V2
+                                | GO_TO_ONBOARD_SUBSCRIPTION_V2 RegistrationScreenState
+                                | GO_TO_HOME_SCREEN_FROM_REGISTERATION_SCREEN_V2 RegistrationScreenState
+                                | REFRESH_REGISTERATION_SCREEN_V2
+                                | REFERRAL_CODE_SUBMIT_V2 RegistrationScreenState
+                                | GO_TO_OPERATION_HUB_SCREEN RegistrationScreenState
+                                | GET_DRIVER_REFERRAL_DETAILS RegistrationScreenState
+                                | DOCUMENT_CAPTURE_FLOW_V2 RegistrationScreenState RegisterationStep
+                                | SELECT_LANG_FROM_REGISTRATION_V2
+                                | AADHAAR_PAN_SELFIE_UPLOAD_V2 RegistrationScreenState HyperVergeKycResult
+                                | GO_TO_APP_UPDATE_POPUP_SCREEN_V2 RegistrationScreenState
+                                | GO_TO_TRAININGS_SCREEN RegistrationScreenState
+                                | GO_TO_FAQS_SCREEN RegistrationScreenState
+
 data UPLOAD_DRIVER_LICENSE_SCREENOUTPUT = VALIDATE_DL_DETAILS UploadDrivingLicenseState 
                                           | VALIDATE_DATA_API UploadDrivingLicenseState 
                                           | GOTO_VEHICLE_DETAILS_SCREEN 
@@ -406,6 +431,7 @@ data UPLOAD_DRIVER_LICENSE_SCREENOUTPUT = VALIDATE_DL_DETAILS UploadDrivingLicen
                                           | GOTO_ONBOARDING_FLOW
                                           | CHANGE_VEHICLE_FROM_DL_SCREEN
                                           | CHANGE_LANG_FROM_DL_SCREEN
+                                          | GO_TO_FAQS_SCREEN_FROM_UPLOAD_DRIVER_LICENSE_SCREEN
 
 data UPLOAD_ADHAAR_CARD_SCREENOUTPUT = GO_TO_ADD_BANK_DETAILS
 
@@ -421,6 +447,8 @@ data ADD_VEHICLE_DETAILS_SCREENOUTPUT = VALIDATE_DETAILS AddVehicleDetailsScreen
                                         | RC_ACTIVATION AddVehicleDetailsScreenState
                                         | CHANGE_VEHICLE_FROM_RC_SCREEN
                                         | CHANGE_LANG_FROM_RC_SCREEN
+                                        | GO_TO_FAQS_SCREEN_FROM_ADD_VEHICLE_DETAILS_SCREEN
+                                        | GO_TO_CHANGE_LOCATION_SCREEN
 data RIDE_REQUEST_SCREEN_OUTPUT  = GOTO_HOME RideRequestScreenData.RideRequestScreenState
                                   | GOTO_RIDE_SUMMARY RideRequestScreenData.RideRequestScreenState
                                   | RIDE_REQUEST_REFRESH_SCREEN RideRequestScreenData.RideRequestScreenState
@@ -596,12 +624,17 @@ data WELCOME_SCREEN_OUTPUT = GoToMobileNumberScreen
 data CHOOSE_CITY_SCREEN_OUTPUT = GoToWelcomeScreen 
                                   | REFRESH_SCREEN_CHOOSE_CITY ChooseCityScreenState
                                   | DETECT_CITY Number Number ChooseCityScreenState
+                                  | BACK_TO_ADD_VEHICLES_SCREEN ChooseCityScreenState
 
 data CHOOSE_LANG_SCREEN_OUTPUT = LOGIN_FLOW
 data BENEFITS_SCREEN_OUTPUT = DRIVER_REFERRAL_SCREEN_NAV NAVIGATION_ACTIONS
                               | DRIVER_CONTEST_SCREEN
                               | GO_TO_LMS_VIDEO_SCREEN BenefitsScreenState
                               | CUSTOMER_REFERRAL_TRACKER_NAV Boolean
+                              | GO_TO_REGISTRATION_SCREEN BenefitsScreenState
+                              | SELECT_LANG_FROM_BENEFITS_SCREEN BenefitsScreenState
+                              | LOGOUT_FROM_BENEFITS_SCREEN
+                              | GO_TO_FAQS_SCREEN_FROM_BENEFITS_SCREEN
 
 data LMS_VIDEO_SCREEN_OUTPUT = GO_TO_QUIZ_SCREEN LmsVideoScreenState | REFRESH_LMS_VIDEO_SCREEN LmsVideoScreenState | GO_TO_BENEFITS_SCREEN | SELECT_LANGUAGE_FOR_VIDEOS LmsVideoScreenState
 
@@ -617,6 +650,17 @@ data DOCUMENT_CAPTURE_SCREEN_OUTPUT = UPLOAD_DOC_API DocumentCaptureScreenState 
                                       | LOGOUT_FROM_DOC_CAPTURE 
                                       | CHANGE_LANG_FROM_DOCUMENT_CAPTURE
                                       | CHANGE_VEHICLE_FROM_DOCUMENT_CAPTURE
+                                      | UPLOAD_VEHICLE_API DocumentCaptureScreenState String 
+                                      | GOTO_ONBOARDING_SCREEN DocumentCaptureScreenState
+                                      | GET_VEHICLE_PHOTOS_STATUS DocumentCaptureScreenState
+                                      | GO_TO_FAQS_SCREEN_FROM_DOCUMENT_CAPTURE 
+
+data OPERATION_HUB_SCREEN_OUTPUT = CHANGE_LANG_FROM_OPERATION_HUB OperationHubScreenState
+                                  | LOGOUT_FROM_OPERATION_HUB
+                                  | CALL_DRIVER_OPERATION_CREATE_REQUEST_API OperationHubScreenState
+                                  | GO_TO_FAQS_SCREEN_FROM_OPERATION_HUB
+
+data ONBOARDING_FAQS_SCREEN_OUTPUT = GO_BACK
 
 data RATE_CARD_SCREEN_OUTPUT = REFRESH_RATE_CARD RateCardScreenState | RATE_CARD_API RateCardScreenState Int
 

@@ -9,6 +9,10 @@ type AppConfigDriver a =
   {
     primaryTextColor :: String,
     primaryBackground :: String,
+    primaryButtonBackground :: String,
+    buttonInactiveBackground :: String,
+    buttonInactiveTextColor :: String,
+    alphaInPrimaryButtonAllowed :: Boolean,
     languageList :: Array Language,
     popupBackground :: String,
     rideCompletedCardConfig :: RideCompletedCardConfig, 
@@ -26,6 +30,7 @@ type AppConfigDriver a =
     cityConfig :: Array CityConfig,
     unserviceableThreshold :: Number,
     enableMockLocation :: Boolean,
+    enableChangeVehicleType :: Boolean,
     flowConfig :: FlowConfig,
     permissions :: PermissionsConfig,
     homeScreen :: HomeScreenConfig,
@@ -116,12 +121,29 @@ type SubscriptionConfig =  {
  }
 
 type ThemeColors = {
-  goOnlineColor :: String,
   navBarBackground :: String,
   primaryStrokeColor :: String,
   openMapsStrokeColor :: String,
   secondaryStrokeColor :: String,
-  openMapsTextColor :: String
+  openMapsTextColor :: String,
+  onlineStatusColor :: String,
+  onboardingHeaderTextColor :: String,
+  onboardingHeaderStroke :: String,
+  radioInactiveBackground :: String,
+  radioActiveBackground :: String,
+  editTextFocusedStroke :: String,
+  editTextNormalStroke :: String,
+  mobileNumberScreenHeaderText :: String,
+  defaultBackButton :: String,
+  highlightedTextColor :: String,
+  radioSelectedImage :: String,
+  radioActiveStroke :: String,
+  onboardingStepImgBg :: String,
+  welcomeScreenBackground :: String,
+  quizButtonStrokeAndText :: String,
+  quizOptionStrokeColor :: String,
+  quizOptionSelectedBgColor :: String,
+  quizOptionTextColor :: String
 }
 
 type SubscriptionOfferBannerConfig = {
@@ -223,6 +245,7 @@ type Features = {
 , enableAutoReferral :: Boolean
 , enableSpecialPickup :: Boolean
 , enableInterOperability :: Boolean
+, showFaqsWhileOnboarding :: Boolean
 }
  
  -- VV - VechileVerfication

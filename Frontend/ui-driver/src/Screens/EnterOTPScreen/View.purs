@@ -63,6 +63,7 @@ view push state =
   , width MATCH_PARENT
   , orientation VERTICAL
   , background Color.white900
+  , margin $ MarginBottom 24
   , afterRender (\action -> do
         _ <- push action
         _ <- JB.setFCMToken push $ SetToken
@@ -97,14 +98,14 @@ view push state =
       , background state.data.config.primaryBackground
       , padding $ Padding 16 16 16 16
       ][  imageView
-          [ imageWithFallback $ HU.fetchImage HU.FF_ASSET "ny_ic_chevron_left_white"
+          [ imageWithFallback $ HU.fetchImage HU.FF_ASSET state.data.config.themeColors.defaultBackButton
           , height $ V 25 
           , width $ V 25
           , onClick push $ const BackPressed
           ]
         , textView $ 
           [ text $ getString GOT_AN_OTP
-          , color Color.white900
+          , color state.data.config.themeColors.onboardingHeaderTextColor
           , margin $ MarginVertical 5 22
           , height WRAP_CONTENT
           , width MATCH_PARENT
@@ -159,7 +160,7 @@ primaryEditTextView state push =
         [ Anim.translateYAnimFromTopWithAlpha AnimConfig.translateYAnimConfig
         ] $ PrimaryEditText.view(push <<< PrimaryEditTextAction) ({
         title: case (getLanguageLocale languageKey) of 
-                  "EN_US" -> (getString ENTER_OTP_SENT_TO) <> state.data.mobileNo
+                  "EN_US" -> (getString OTP_SENT_TO) <> state.data.mobileNo
                   _ -> state.data.mobileNo <> (getString ENTER_OTP_SENT_TO) ,
         type: "number",
         hint: (getString AUTO_READING_OTP),
@@ -170,7 +171,9 @@ primaryEditTextView state push =
         pattern : Just "[0-9]*,4",
         fontSize : FontSize.a_18,
         letterSpacing : PX if state.data.otp == "" then 0.0 else 5.0,
-        id : (EHC.getNewIDWithTag "EnterOTPScreenEditText")
+        id : (EHC.getNewIDWithTag "EnterOTPScreenEditText"),
+        background : state.data.config.themeColors.radioInactiveBackground,
+        stroke : state.data.config.themeColors.editTextNormalStroke
       })
     , PrestoAnim.animationSet
       [ Anim.translateYAnimFromTopWithAlpha AnimConfig.translateYAnimConfig
