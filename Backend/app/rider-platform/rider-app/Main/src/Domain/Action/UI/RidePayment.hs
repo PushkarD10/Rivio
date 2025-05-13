@@ -40,10 +40,10 @@ data DFareBreakup = DFareBreakup
 
 getcustomer ::
   Domain.Types.Person.Person -> Environment.Flow Payment.CreateCustomerResp
-getcustomer person =
-  case person.juspayCustomerPaymentID of
-    Just customerId -> do
-      customer <- QPaymentCustomer.findByCustomerId customerId >>= fromMaybeM (InternalError $ "No payment customer found for the customer id " <> customerId)
+getcustomer person = do
+  mbCustomer <- QPaymentCustomer.findByCustomerId person.id.getId
+  case mbCustomer of
+    Just customer -> do
       now <- getCurrentTime
       if maybe False (> now) customer.clientAuthTokenExpiry
         then
@@ -54,18 +54,13 @@ getcustomer person =
                 clientAuthTokenExpiry = customer.clientAuthTokenExpiry
               }
         else do
-          getCustomer <- Payment.getCustomer person.merchantId person.merchantOperatingCityId customerId
+          getCustomer <- Payment.getCustomer person.merchantId person.merchantOperatingCityId person.id.getId
           QPaymentCustomer.updateCATAndExipry getCustomer.clientAuthToken getCustomer.clientAuthTokenExpiry getCustomer.customerId
           return $ getCustomer
     Nothing -> do
-      uuid <- generateGUID
-      mbEmailDecrypted <- mapM decrypt person.email
-      phoneDecrypted <- mapM decrypt person.mobileNumber
-      let req = Payment.CreateCustomerReq {email = mbEmailDecrypted, name = person.firstName, phone = phoneDecrypted, lastName = Nothing, objectReferenceId = Just uuid, mobileCountryCode = Nothing, optionsGetClientAuthToken = Just True}
-      customer <- Payment.createCustomer person.merchantId person.merchantOperatingCityId req
+      customer <- Payment.getCustomer person.merchantId person.merchantOperatingCityId person.id.getId
       paymentCustomer <- buildCreateCustomer customer
       QPaymentCustomer.create paymentCustomer
-      QPerson.updateJuspayCustomerPaymentId (Just customer.customerId) person.id
       return $ customer
 
 buildCreateCustomer ::
