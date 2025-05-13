@@ -7,17 +7,17 @@ apis:
   - GET:
       endpoint: /invoice
       auth: TokenAuth
-      mandatoryQuery:
-        fromDate: UTCTime
-        toDate: UTCTime
-        rcNo: Text
+      query:
+        - fromDate: UTCTime
+        - toDate: UTCTime
+        - rcNo: Text
       response:
         type: "[InvoiceRes]"
 
 types:
   InvoiceRes:
-    date: UTCTime
-    driverName: Text
-    vehicleNumber: Text
-    chargeableDistance: HighPrecMeters
-    fare: Int
+    - date: UTCTime
+    - driverName: Text
+    - vehicleNumber: Text
+    - chargeableDistance: HighPrecMeters
+    - fare: Int

@@ -270,3 +270,21 @@ getFleetStats rideStats =
       cancelledRides = sum $ map (.cancelledRides) rideStats
       totalDuration = sum $ map (.totalDuration) rideStats
    in (totalEarnings, totalDistanceTravelled, completedRides, cancelledRides, totalDuration)
+
+getAllCompletedRidesByDriverId ::
+  CH.HasClickhouseEnv CH.APP_SERVICE_CLICKHOUSE m =>
+  Id DP.Person ->
+  Maybe UTCTime ->
+  Maybe UTCTime ->
+  m [DRide.Ride]
+getAllCompletedRidesByDriverId driverId maybeFrom maybeTo =
+  CH.findAll $
+    CH.select_ (\ride -> CH.aggregate $ CH.count_ ride.id) $
+      CH.filter_
+        ( \ride _ ->
+            ride.status CH.==. Just DRide.COMPLETED
+              CH.&&. maybe True (\from -> ride.createdAt >=. from) maybeFrom
+              CH.&&. maybe True (\to -> ride.createdAt <=. to) maybeTo
+              CH.&&. ride.driverId CH.==. Just (cast driverId)
+        )
+        (CH.all_ @CH.APP_SERVICE_CLICKHOUSE rideTTable)
