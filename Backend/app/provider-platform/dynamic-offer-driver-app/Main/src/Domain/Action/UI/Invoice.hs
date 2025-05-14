@@ -3,14 +3,20 @@
 module Domain.Action.UI.Invoice (getInvoice) where
 
 import qualified API.Types.UI.Invoice
+import Control.Monad (msum)
 import Data.OpenApi (ToSchema)
 import qualified Domain.Types.Merchant
 import qualified Domain.Types.Person
 import qualified Environment
 import EulerHS.Prelude hiding (id)
 import qualified Kernel.Prelude
+import Kernel.Types.Error (PersonError (PersonNotFound))
 import qualified Kernel.Types.Id
+import Kernel.Utils.Common (fromMaybeM)
 import Servant
+import qualified Storage.Clickhouse.Ride as CHR
+import qualified Storage.Clickhouse.RideDetails as CHRD
+import qualified Storage.Queries.Person as QP
 import Tools.Auth
 
 getInvoice ::
@@ -22,31 +28,17 @@ getInvoice ::
   Kernel.Prelude.Maybe (Kernel.Prelude.Text) ->
   Environment.Flow [API.Types.UI.Invoice.InvoiceRes]
 getInvoice (mbPersonId, merchantId) mbFromDate mbToDate mbRcNo = do
-  driverId <- mbPersonId & fromMaybeM (PersonNotFound "No person found")
-  bookings <- CHB.findAllCompletedRiderBookingsByMerchantInRange merchantId personId from to
-  invoices <- mapM makeInvoiceResponse bookings
-  return $ catMaybes invoices
+  driver <- maybe (pure Nothing) QP.findById mbPersonId >>= fromMaybeM (PersonNotFound <> show mbPersonId)
+  rideLs <- CHR.getAllCompletedRidesByDriverId driver.id mbFromDate mbToDate
+  mapM (makeInvoiceResponse driver) rideLs
   where
-    makeInvoiceResponse booking = do
-      mbRide <- CHR.findRideByBookingId booking.id booking.createdAt
-      case mbRide of
-        Just ride -> do
-          mbDestination <- case booking.toLocationId of
-            Just toLocId -> CHL.findLocationById toLocId booking.createdAt
-            Nothing -> return Nothing
-          return $
-            Just $
-              DTInvoice.InvoiceRes
-                { date = booking.createdAt,
-                  driverName = fromMaybe notAvailableText ride.driverName,
-                  vehicleNumber = fromMaybe notAvailableText ride.vehicleNumber,
-                  chargeableDistance = ride.chargeableDistance,
-                  fare = maybe notAvailableText show ride.totalFare
-                }
-        Nothing -> return Nothing
-    getFareBreakup booking (tag, title) = do
-      fareBreakup <- CHFB.findFareBreakupByBookingIdAndDescription booking.id tag booking.createdAt
-      case fareBreakup of
-        Just breakup -> return . Just $ DTInvoice.FareBreakup {price = maybe notAvailableText show breakup.amount, title}
-        Nothing -> return Nothing
-    notAvailableText = "N/A"
+    makeInvoiceResponse driver ride = do
+      mbVehicleNumber <- msum <$> CHRD.findVehicleNumberById (Kernel.Types.Id.cast ride.id)
+      pure $
+        API.Types.UI.Invoice.InvoiceRes
+          { date = ride.createdAt,
+            driverName = unwords [driver.firstName, driver.lastName],
+            vehicleNumber = fromMaybe "N/A" mbVehicleNumber,
+            chargeableDistance = ride.chargeableDistance,
+            fare = fromMaybe 0 ride.fare
+          }

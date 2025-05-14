@@ -276,15 +276,15 @@ getAllCompletedRidesByDriverId ::
   Id DP.Person ->
   Maybe UTCTime ->
   Maybe UTCTime ->
-  m [DRide.Ride]
-getAllCompletedRidesByDriverId driverId maybeFrom maybeTo =
+  m [Ride]
+getAllCompletedRidesByDriverId driverId mbFrom mbTo =
   CH.findAll $
-    CH.select_ (\ride -> CH.aggregate $ CH.count_ ride.id) $
+    CH.select_ (\rd -> CH.notGrouped rd) $
       CH.filter_
         ( \ride _ ->
             ride.status CH.==. Just DRide.COMPLETED
-              CH.&&. maybe True (\from -> ride.createdAt >=. from) maybeFrom
-              CH.&&. maybe True (\to -> ride.createdAt <=. to) maybeTo
+              CH.&&. CH.whenJust_ mbFrom (\from -> ride.createdAt >=. from)
+              CH.&&. CH.whenJust_ mbTo (\to -> ride.createdAt <=. to)
               CH.&&. ride.driverId CH.==. Just (cast driverId)
         )
         (CH.all_ @CH.APP_SERVICE_CLICKHOUSE rideTTable)
