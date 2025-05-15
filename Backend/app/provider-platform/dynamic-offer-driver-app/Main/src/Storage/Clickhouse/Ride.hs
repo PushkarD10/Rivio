@@ -274,17 +274,17 @@ getFleetStats rideStats =
 getAllCompletedRidesByDriverId ::
   CH.HasClickhouseEnv CH.APP_SERVICE_CLICKHOUSE m =>
   Id DP.Person ->
-  Maybe UTCTime ->
-  Maybe UTCTime ->
+  UTCTime ->
+  UTCTime ->
   m [Ride]
-getAllCompletedRidesByDriverId driverId mbFrom mbTo =
+getAllCompletedRidesByDriverId driverId from to =
   CH.findAll $
     CH.select_ (\rd -> CH.notGrouped rd) $
       CH.filter_
         ( \ride _ ->
             ride.status CH.==. Just DRide.COMPLETED
-              CH.&&. CH.whenJust_ mbFrom (\from -> ride.createdAt >=. from)
-              CH.&&. CH.whenJust_ mbTo (\to -> ride.createdAt <=. to)
+              CH.&&. ride.createdAt >=. from
+              CH.&&. ride.createdAt <=. to
               CH.&&. ride.driverId CH.==. Just (cast driverId)
         )
         (CH.all_ @CH.APP_SERVICE_CLICKHOUSE rideTTable)
