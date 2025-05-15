@@ -6,10 +6,12 @@ import qualified API.Types.UI.Invoice
 import Control.Monad (msum)
 import Data.OpenApi (ToSchema)
 import qualified Domain.Types.Merchant
+import qualified Domain.Types.MerchantOperatingCity
 import qualified Domain.Types.Person
 import qualified Environment
 import EulerHS.Prelude hiding (id)
 import qualified Kernel.Prelude
+import Kernel.Types.Distance (Meters (..), metersToHighPrecMeters)
 import Kernel.Types.Error (PersonError (PersonNotFound))
 import qualified Kernel.Types.Id
 import Kernel.Utils.Common (fromMaybeM)
@@ -21,24 +23,25 @@ import Tools.Auth
 
 getInvoice ::
   ( Kernel.Prelude.Maybe (Kernel.Types.Id.Id Domain.Types.Person.Person),
-    Kernel.Types.Id.Id Domain.Types.Merchant.Merchant
+    Kernel.Types.Id.Id Domain.Types.Merchant.Merchant,
+    Kernel.Types.Id.Id Domain.Types.MerchantOperatingCity.MerchantOperatingCity
   ) ->
   Kernel.Prelude.Maybe (Kernel.Prelude.UTCTime) ->
   Kernel.Prelude.Maybe (Kernel.Prelude.UTCTime) ->
   Kernel.Prelude.Maybe (Kernel.Prelude.Text) ->
   Environment.Flow [API.Types.UI.Invoice.InvoiceRes]
-getInvoice (mbPersonId, merchantId) mbFromDate mbToDate mbRcNo = do
-  driver <- maybe (pure Nothing) QP.findById mbPersonId >>= fromMaybeM (PersonNotFound <> show mbPersonId)
+getInvoice (mbPersonId, _merchantId, _merchantOpCityId) mbFromDate mbToDate mbRcNo = do
+  driver <- join <$> traverse QP.findById mbPersonId >>= fromMaybeM (PersonNotFound $ show mbPersonId)
   rideLs <- CHR.getAllCompletedRidesByDriverId driver.id mbFromDate mbToDate
   mapM (makeInvoiceResponse driver) rideLs
   where
     makeInvoiceResponse driver ride = do
-      mbVehicleNumber <- msum <$> CHRD.findVehicleNumberById (Kernel.Types.Id.cast ride.id)
+      mbVehicleNumber <- msum <$> CHRD.findByIdAndVehicleNumber (Kernel.Types.Id.cast ride.id) mbRcNo
       pure $
         API.Types.UI.Invoice.InvoiceRes
           { date = ride.createdAt,
-            driverName = unwords [driver.firstName, driver.lastName],
+            driverName = unwords [driver.firstName, fromMaybe "" driver.lastName],
             vehicleNumber = fromMaybe "N/A" mbVehicleNumber,
-            chargeableDistance = ride.chargeableDistance,
+            chargeableDistance = metersToHighPrecMeters . Meters $ fromMaybe 0 ride.chargeableDistance,
             fare = fromMaybe 0 ride.fare
           }

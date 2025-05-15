@@ -79,13 +79,17 @@ findIdsByFleetOwnerAndVehicle fleetOwnerId vehicleNumber from to = do
         )
         (CH.all_ @CH.APP_SERVICE_CLICKHOUSE rideDetailsTTable)
 
-findVehicleNumberById ::
+findByIdAndVehicleNumber ::
   CH.HasClickhouseEnv CH.APP_SERVICE_CLICKHOUSE m =>
   Id DRD.RideDetails ->
+  Maybe Text ->
   m [Maybe Text]
-findVehicleNumberById rideId = do
+findByIdAndVehicleNumber rideId mbVehicleNumber = do
   CH.findAll $
     CH.select_ (\rd -> CH.notGrouped (rd.vehicleNumber)) $
       CH.filter_
-        (\rideDetails _ -> rideDetails.id CH.==. rideId)
+        ( \rideDetails _ ->
+            rideDetails.id CH.==. rideId
+              CH.&&. CH.whenJust_ mbVehicleNumber (\vehicleNumber -> rideDetails.vehicleNumber CH.==. Just vehicleNumber)
+        )
         (CH.all_ @CH.APP_SERVICE_CLICKHOUSE rideDetailsTTable)

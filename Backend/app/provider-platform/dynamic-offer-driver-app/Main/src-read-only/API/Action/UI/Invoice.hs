@@ -11,6 +11,7 @@ import qualified API.Types.UI.Invoice
 import qualified Control.Lens
 import qualified Domain.Action.UI.Invoice as Domain.Action.UI.Invoice
 import qualified Domain.Types.Merchant
+import qualified Domain.Types.MerchantOperatingCity
 import qualified Domain.Types.Person
 import qualified Environment
 import EulerHS.Prelude
@@ -33,7 +34,8 @@ handler = getInvoice
 
 getInvoice ::
   ( ( Kernel.Types.Id.Id Domain.Types.Person.Person,
-      Kernel.Types.Id.Id Domain.Types.Merchant.Merchant
+      Kernel.Types.Id.Id Domain.Types.Merchant.Merchant,
+      Kernel.Types.Id.Id Domain.Types.MerchantOperatingCity.MerchantOperatingCity
     ) ->
     Kernel.Prelude.Maybe (Kernel.Prelude.UTCTime) ->
     Kernel.Prelude.Maybe (Kernel.Prelude.UTCTime) ->
