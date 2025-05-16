@@ -23,7 +23,7 @@ import qualified Lib.JourneyLeg.Types as JPT
 fareProcessingLockKey :: Text -> Text
 fareProcessingLockKey journeyId = "Fare:Processing:JourneyId" <> journeyId
 
-createFares :: (EsqDBFlow m r, EsqDBReplicaFlow m r, CacheFlow m r) => Text -> Maybe JPT.JourneySearchData -> m () -> m Bool
+createFares :: (EsqDBFlow m r, EsqDBReplicaFlow m r, CacheFlow m r) => Text -> Maybe JPT.JourneySearchData -> m () -> m Bool -- to see
 createFares searchId journeyLegInfo updateInSearchReqFunc = do
   whenJust journeyLegInfo $ \_ -> updateInSearchReqFunc
   mbShouldConfirmFare <- getConfirmOnceGetFare searchId
