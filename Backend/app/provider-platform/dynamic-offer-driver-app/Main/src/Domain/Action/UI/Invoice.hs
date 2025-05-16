@@ -2,7 +2,8 @@ module Domain.Action.UI.Invoice (getInvoice) where
 
 import qualified API.Types.UI.Invoice
 import Control.Monad (msum)
-import Data.Time (getCurrentTime)
+--import Data.Time (getCurrentTime)
+import Data.Time (UTCTime (UTCTime, utctDay), getCurrentTime)
 import qualified Domain.Types.Merchant
 import qualified Domain.Types.MerchantOperatingCity
 import qualified Domain.Types.Person
@@ -22,14 +23,14 @@ getInvoice ::
     Kernel.Types.Id.Id Domain.Types.Merchant.Merchant,
     Kernel.Types.Id.Id Domain.Types.MerchantOperatingCity.MerchantOperatingCity
   ) ->
-  Kernel.Prelude.Maybe (Kernel.Prelude.UTCTime) ->
-  Kernel.Prelude.Maybe (Kernel.Prelude.UTCTime) ->
-  Kernel.Prelude.Maybe (Kernel.Prelude.Text) ->
+  Kernel.Prelude.Maybe UTCTime ->
+  Kernel.Prelude.Maybe UTCTime ->
+  Kernel.Prelude.Maybe Kernel.Prelude.Text ->
   Environment.Flow [API.Types.UI.Invoice.InvoiceRes]
 getInvoice (mbPersonId, _merchantId, _merchantOpCityId) mbFromDate mbToDate mbRcNo = do
   driver <- traverse QP.findById mbPersonId >>= fromMaybeM (PersonNotFound $ show mbPersonId) . join
   now <- liftIO getCurrentTime
-  let defaultFrom = Kernel.Prelude.UTCTime (utctDay now) 0
+  let defaultFrom = UTCTime (utctDay now) 0
       fromDate = fromMaybe defaultFrom mbFromDate
       toDate = fromMaybe now mbToDate
   rideLs <- CHR.getAllCompletedRidesByDriverId driver.id fromDate toDate
