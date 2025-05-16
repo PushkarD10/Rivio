@@ -14,7 +14,13 @@ data InvoiceRes = InvoiceRes
     driverName :: Kernel.Prelude.Text,
     vehicleNumber :: Kernel.Prelude.Text,
     chargeableDistance :: Kernel.Types.Common.HighPrecMeters,
-    fare :: Kernel.Prelude.Int
+    fare :: Kernel.Prelude.Int,
+    rideStartTime :: Kernel.Prelude.UTCTime,
+    rideEndTime :: Kernel.Prelude.UTCTime,
+    shortRideId :: Kernel.Prelude.Text,
+    source :: Kernel.Prelude.Text,
+    destination :: Kernel.Prelude.Text,
+    chargeableDistanceWithUnit :: Kernel.Types.Common.Distance
   }
   deriving stock (Generic)
   deriving anyclass (ToJSON, FromJSON, ToSchema)

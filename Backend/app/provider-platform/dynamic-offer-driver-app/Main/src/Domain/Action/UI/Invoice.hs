@@ -2,7 +2,6 @@ module Domain.Action.UI.Invoice (getInvoice) where
 
 import qualified API.Types.UI.Invoice
 import Control.Monad (msum)
---import Data.Time (getCurrentTime)
 import Data.Time (UTCTime (UTCTime, utctDay), getCurrentTime)
 import qualified Domain.Types.Merchant
 import qualified Domain.Types.MerchantOperatingCity
@@ -10,7 +9,12 @@ import qualified Domain.Types.Person
 import qualified Environment
 import EulerHS.Prelude hiding (id)
 import qualified Kernel.Prelude
-import Kernel.Types.Distance (Meters (..), metersToHighPrecMeters)
+import Kernel.Types.Distance
+  ( DistanceUnit (Meter),
+    Meters (..),
+    convertHighPrecMetersToDistance,
+    metersToHighPrecMeters,
+  )
 import Kernel.Types.Error (PersonError (PersonNotFound))
 import qualified Kernel.Types.Id
 import Kernel.Utils.Common (fromMaybeM)
@@ -38,12 +42,19 @@ getInvoice (mbPersonId, _merchantId, _merchantOpCityId) mbFromDate mbToDate mbRc
   where
     makeInvoiceResponse driver ride = do
       mbVehicleNumber <- msum <$> CHRD.findByIdAndVehicleNumber (Kernel.Types.Id.cast ride.id) mbRcNo
-      let invoiceResponse vehicleNumber =
+      let chargeableDistance = metersToHighPrecMeters . Meters $ fromMaybe 0 ride.chargeableDistance
+          invoiceResponse vehicleNumber =
             API.Types.UI.Invoice.InvoiceRes
               { date = ride.createdAt,
                 driverName = unwords [driver.firstName, fromMaybe "" driver.lastName],
                 vehicleNumber = vehicleNumber,
-                chargeableDistance = metersToHighPrecMeters . Meters $ fromMaybe 0 ride.chargeableDistance,
-                fare = fromMaybe 0 ride.fare
+                chargeableDistance = chargeableDistance,
+                fare = fromMaybe 0 ride.fare,
+                rideStartTime = fromMaybe ride.createdAt ride.tripStartTime,
+                rideEndTime = fromMaybe ride.updatedAt ride.tripEndTime,
+                shortRideId = ride.shortId.getShortId,
+                source = fromMaybe "N/A" ride.tripStartPos,
+                destination = fromMaybe "N/A" ride.tripEndPos,
+                chargeableDistanceWithUnit = convertHighPrecMetersToDistance Meter chargeableDistance
               }
       pure $ invoiceResponse <$> mbVehicleNumber

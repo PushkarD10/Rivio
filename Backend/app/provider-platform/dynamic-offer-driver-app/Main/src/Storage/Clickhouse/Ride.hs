@@ -29,12 +29,17 @@ import Storage.Clickhouse.RideDetails (findIdsByFleetOwner, findIdsByFleetOwnerA
 
 data RideT f = RideT
   { id :: C f (Id DRide.Ride),
+    shortId :: C f (ShortId DRide.Ride),
     status :: C f (Maybe DRide.RideStatus),
     fare :: C f (Maybe Int),
     driverId :: C f (Maybe (Id DP.Driver)),
     chargeableDistance :: C f (Maybe Int),
     createdAt :: C f UTCTime,
-    updatedAt :: C f UTCTime
+    updatedAt :: C f UTCTime,
+    tripEndPos :: C f (Maybe Text),
+    tripEndTime :: C f (Maybe UTCTime),
+    tripStartPos :: C f (Maybe Text),
+    tripStartTime :: C f (Maybe UTCTime)
   }
   deriving (Generic)
 
@@ -46,12 +51,17 @@ rideTTable :: RideT (FieldModification RideT)
 rideTTable =
   RideT
     { id = "id",
+      shortId = "short_id",
       status = "status",
       fare = "fare",
       driverId = "driver_id",
       chargeableDistance = "chargeable_distance",
       createdAt = "created_at",
-      updatedAt = "updated_at"
+      updatedAt = "updated_at",
+      tripEndPos = "trip_end_pos",
+      tripEndTime = "trip_end_time",
+      tripStartPos = "trip_start_pos",
+      tripStartTime = "trip_start_time"
     }
 
 type Ride = RideT Identity
