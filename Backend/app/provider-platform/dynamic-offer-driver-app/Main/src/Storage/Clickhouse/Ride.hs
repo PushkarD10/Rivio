@@ -36,9 +36,11 @@ data RideT f = RideT
     chargeableDistance :: C f (Maybe Int),
     createdAt :: C f UTCTime,
     updatedAt :: C f UTCTime,
-    tripEndPos :: C f (Maybe Text),
+    tripStartLat :: C f (Maybe Double),
+    tripStartLon :: C f (Maybe Double),
+    tripEndLat :: C f (Maybe Double),
+    tripEndLon :: C f (Maybe Double),
     tripEndTime :: C f (Maybe UTCTime),
-    tripStartPos :: C f (Maybe Text),
     tripStartTime :: C f (Maybe UTCTime)
   }
   deriving (Generic)
@@ -58,9 +60,11 @@ rideTTable =
       chargeableDistance = "chargeable_distance",
       createdAt = "created_at",
       updatedAt = "updated_at",
-      tripEndPos = "trip_end_pos",
+      tripStartLat = "trip_start_lat",
+      tripStartLon = "trip_start_lon",
+      tripEndLat = "trip_end_lat",
+      tripEndLon = "trip_end_lon",
       tripEndTime = "trip_end_time",
-      tripStartPos = "trip_start_pos",
       tripStartTime = "trip_start_time"
     }
 

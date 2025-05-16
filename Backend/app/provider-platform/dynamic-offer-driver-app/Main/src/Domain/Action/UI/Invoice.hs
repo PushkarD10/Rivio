@@ -8,6 +8,7 @@ import qualified Domain.Types.MerchantOperatingCity
 import qualified Domain.Types.Person
 import qualified Environment
 import EulerHS.Prelude hiding (id)
+import Kernel.External.Maps.Types (LatLong (..))
 import qualified Kernel.Prelude
 import Kernel.Types.Distance
   ( DistanceUnit (Meter),
@@ -43,6 +44,9 @@ getInvoice (mbPersonId, _merchantId, _merchantOpCityId) mbFromDate mbToDate mbRc
     makeInvoiceResponse driver ride = do
       mbVehicleNumber <- msum <$> CHRD.findByIdAndVehicleNumber (Kernel.Types.Id.cast ride.id) mbRcNo
       let chargeableDistance = metersToHighPrecMeters . Meters $ fromMaybe 0 ride.chargeableDistance
+          createCoord lat lon = fromMaybe "N/A" $ show <$> liftA2 LatLong lat lon
+          source = createCoord ride.tripStartLat ride.tripStartLon
+          destination = createCoord ride.tripEndLat ride.tripEndLon
           invoiceResponse vehicleNumber =
             API.Types.UI.Invoice.InvoiceRes
               { date = ride.createdAt,
@@ -53,8 +57,8 @@ getInvoice (mbPersonId, _merchantId, _merchantOpCityId) mbFromDate mbToDate mbRc
                 rideStartTime = fromMaybe ride.createdAt ride.tripStartTime,
                 rideEndTime = fromMaybe ride.updatedAt ride.tripEndTime,
                 shortRideId = ride.shortId.getShortId,
-                source = fromMaybe "N/A" ride.tripStartPos,
-                destination = fromMaybe "N/A" ride.tripEndPos,
+                source = source,
+                destination = destination,
                 chargeableDistanceWithUnit = convertHighPrecMetersToDistance Meter chargeableDistance
               }
       pure $ invoiceResponse <$> mbVehicleNumber
