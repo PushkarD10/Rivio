@@ -1155,7 +1155,7 @@ homeScreenFlow = do
         )
   liftFlowBT $ handleUpdatedTerms $ getString STR.TERMS_AND_CONDITIONS_UPDATED
   flow <- UI.homeScreen
-  void $ lift $ lift $ fork $ Remote.pushSDKEvents
+  callPushSdkEventsAfterCheckingInterval FunctionCall
   case flow of
     STAY_IN_HOME_SCREEN -> do
       updateLocalStage HomeScreen
@@ -5871,7 +5871,7 @@ predictionClickedFlow prediction state = do
                 _ = spy "searchRideType = " state.data.searchRideType
                 -- srcLocation = Just $ SearchLocationScreenData.dummyLocationInfo { busStopInfo = Just { stationName : state.props.stopNameSelected, stationCode : state.props.stopCodeSelected }, address =  state.props.stopNameSelected, stationCode = state.props.stopCodeSelected }
                 -- destLocation = Just $ SearchLocationScreenData.dummyLocationInfo { busStopInfo = Just { stationName : state.props.stopNameSelected, stationCode : "" }, address = "", stationCode = "" }
-              void $ pure $ firebaseLogEvent "ny_bus_user_route_based_flow"
+              let _ = unsafePerformEffect $ Events.addEventAggregate "ny_bus_user_route_based_flow"
 
               (GetMetroStationResponse getBusStopResp) <- Remote.getMetroStationBT (show state.data.ticketServiceType) currentCity state.props.routeSelected "" (show currentState.homeScreen.props.sourceLat <> "," <> show currentState.homeScreen.props.sourceLong)
               pure $ setText (getNewIDWithTag (show SearchLocPickup)) ""
@@ -5903,10 +5903,10 @@ predictionClickedFlow prediction state = do
                     , fromScreen = Screen.getScreen Screen.BUS_ROUTE_STOPS_SEARCH_SCREEN
                     }
                   })
-                void $ pure $ JB.firebaseLogEvent "ny_bus_user_clicked_routeBasedFlow"
+                let _ = unsafePerformEffect $ Events.addEventAggregate "ny_bus_user_clicked_routeBasedFlow"
                 busTrackingScreenFlow
               else if rideType == Just STOP then do
-                void $ pure $ JB.firebaseLogEvent "ny_bus_user_clicked_stopsBasedFlow"
+                let _ = unsafePerformEffect $ Events.addEventAggregate "ny_bus_user_clicked_stopsBasedFlow"
                 metroTicketBookingFlow
               else searchLocationFlow
 
@@ -7456,6 +7456,7 @@ busTicketBookingFlow :: FlowBT String Unit
 busTicketBookingFlow = do
   (GlobalState currentState) <- getState
   action <- lift $ lift $ runScreen $ UI.busTicketBookingScreen currentState.busTicketBookingScreen
+  callPushSdkEventsAfterCheckingInterval FunctionCall
   case action of
     BusTicketBookingController.GoToHomeScreen state -> do
       void $ pure $ removeValueFromCache "POLLING_ID" 
@@ -7610,6 +7611,7 @@ busTrackingScreenFlow :: FlowBT String Unit
 busTrackingScreenFlow = do
   (GlobalState currentState) <- getState
   action <- UI.busTrackingScreen 
+  callPushSdkEventsAfterCheckingInterval FunctionCall
   case action of
     BusTrackingScreen.GoToSearchLocation state -> do
       let currentCity = getValueToLocalStore CUSTOMER_LOCATION
@@ -7795,6 +7797,7 @@ aadhaarVerificationFlow offerType = do
 selectBusRouteScreenFlow :: String -> String -> FlowBT String Unit
 selectBusRouteScreenFlow srcCode destCode = do
   action <- UI.selectBusRouteScreen srcCode destCode
+  callPushSdkEventsAfterCheckingInterval FunctionCall
   case action of
     TRACK_BUS state -> do
       case state.data.selectedQuote of
@@ -7886,3 +7889,15 @@ updateMetroBookingQuoteInfo metroBookingStatus = do
       void $ pure $ toast errMsg
       modifyScreenState $ MetroTicketBookingScreenStateType (\state -> state { data {applyDiscounts = Nothing}, props { currentStage  = if state.props.ticketServiceType == BUS then ST.BusTicketSelection else  ST.MetroTicketSelection } })
       pure unit
+
+callPushSdkEventsAfterCheckingInterval :: LazyCheck -> FlowBT String Unit
+callPushSdkEventsAfterCheckingInterval _ =
+  let pushEventsConfig = RC.pushEventsConfig FunctionCall
+      currentTimeStamp = EHC.getCurrentUTC ""
+      lastAPICallTimeStamp = getValueFromWindow (show PUSH_SDK_TS)
+      intervalConfigCheck = (lastAPICallTimeStamp == "__failed" || (EHC.compareUTCDate currentTimeStamp lastAPICallTimeStamp) > pushEventsConfig.loggingIntervalInS)
+  in
+    if intervalConfigCheck then do
+      void $ lift $ lift $ fork $ Remote.pushSDKEvents
+      void $ pure $ setValueInWindow (show PUSH_SDK_TS) currentTimeStamp
+    else pure unit  
